@@ -1,0 +1,1 @@
+../../calatrava/calatrava-ios/Bridge/RegisteredPlugin.h

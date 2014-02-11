@@ -1,0 +1,5 @@
+platform :ios, '5.0'
+
+xcodeproj 'sample.xcodeproj'
+
+pod 'calatrava', :git => 'https://github.com/calatrava/calatrava-ios', :commit => '50b05d43055bc6680ea55ce888ab692c00193c28'

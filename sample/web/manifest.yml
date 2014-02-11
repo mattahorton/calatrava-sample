@@ -1,0 +1,4 @@
+features:
+  - converter
+kernel_libs:
+#  - assets/lib/underscore.js
