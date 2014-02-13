@@ -21,19 +21,19 @@ import com.calatrava.CalatravaPage;
 import com.calatrava.bridge.RegisteredActivity;
 
 @CalatravaPage(name = "conversionForm")
-public class ConversionForm extends RegisteredActivity implements
-		OnItemSelectedListener {
+public class ConversionForm extends RegisteredActivity {
 
 	TextView convertedTextView;
 	EditText unconvertedEditText;
-	Spinner inSpinner, outSpinner, spin;
-	ArrayList<String> inCurrencyStrings, outCurrencyStrings;
+	Spinner inSpinner, outSpinner;
+	ArrayList<String> curStrings; 
 	ArrayAdapter<String> inCurAdapter, outCurAdapter, adapt;
 	String inCurrencyCode = "USD";
 	String outCurrencyCode = "USD";
 	JSONArray inJsonArray, outJsonArray;
 	JSONObject jsonobj;
 	String key;
+	RegisteredActivity convForm = this;
 
 	@Override
 	protected String getPageName() {
@@ -49,11 +49,19 @@ public class ConversionForm extends RegisteredActivity implements
 		unconvertedEditText = (EditText) findViewById(R.id.unconvertedEditText);
 		inSpinner = (Spinner) findViewById(R.id.inSpinner);
 		outSpinner = (Spinner) findViewById(R.id.outSpinner);
-		inCurrencyStrings = new ArrayList<String>();
-		outCurrencyStrings = new ArrayList<String>();
+		inCurAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item);
+		outCurAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item);
+		inCurAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		outCurAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		inSpinner.setAdapter(inCurAdapter);
+		outSpinner.setAdapter(outCurAdapter);
+	}
 
-		inSpinner.setOnItemSelectedListener(this);
-		outSpinner.setOnItemSelectedListener(this);
+	@Override
+	protected void onResume() {
+		super.onResume();
+		inSpinner.setOnItemSelectedListener(new CurrencyItemSelectedListener());
+		outSpinner.setOnItemSelectedListener(new CurrencyItemSelectedListener());
 	}
 
 	@Override
@@ -77,27 +85,14 @@ public class ConversionForm extends RegisteredActivity implements
 
 				key = String.valueOf(iter.next());
 				if (key.equalsIgnoreCase("inCurrencies")) {
-					renderSpinner(inSpinner, jsonobj.getJSONArray(key),
-							inCurrencyStrings, inCurAdapter);
+					renderSpinner(inSpinner, jsonobj.getJSONArray(key), inCurAdapter);
 				} else if (key.equalsIgnoreCase("outCurrencies")) {
-					renderSpinner(inSpinner, jsonobj.getJSONArray(key),
-							outCurrencyStrings, outCurAdapter);
+					renderSpinner(outSpinner, jsonobj.getJSONArray(key), outCurAdapter);
 				} else if (key.equalsIgnoreCase("in_amount")) {
-					this.runOnUiThread(new Runnable() {
-
-						@Override
-						public void run() {
-							try {
-								unconvertedEditText.setText(jsonobj.getString(key));
-							} catch (JSONException e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
-						}
-					});
+					unconvertedEditText.setText(jsonobj.getString(key));
 				} else if (key.equalsIgnoreCase("out_amount")) {
+					
 					this.runOnUiThread(new Runnable() {
-
 						@Override
 						public void run() {
 							try {
@@ -120,11 +115,10 @@ public class ConversionForm extends RegisteredActivity implements
 		this.triggerEvent("convert", new String[] {});
 	}
 
-	public void renderSpinner(Spinner spinner, JSONArray data,
-			ArrayList<String> currencyStrings, ArrayAdapter<String> adapter)
+	public void renderSpinner(Spinner spinner, JSONArray data, ArrayAdapter<String> adapter)
 			throws JSONException {
 
-		currencyStrings.clear();
+		ArrayList<String> currencyStrings = new ArrayList<String>();
 
 		for (int i = 0; i < data.length(); i++) {
 			currencyStrings.add(data.getJSONObject(i).getString("code"));
@@ -135,76 +129,67 @@ public class ConversionForm extends RegisteredActivity implements
 		} else if (spinner == outSpinner) {
 			outJsonArray = data;
 		}
-
-		if (adapter == null) {
-			adapter = new ArrayAdapter<String>(this,
-					android.R.layout.simple_spinner_item, currencyStrings);
-		} else {
-			adapter.clear();
-			adapter.addAll(currencyStrings);
-		}
-
-		adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-		spin = spinner;
+		
 		adapt = adapter;
-
+		curStrings = currencyStrings;
+		
 		this.runOnUiThread(new Runnable() {
-
 			@Override
 			public void run() {
-				spin.setAdapter(adapt);
+				adapt.clear();
+				adapt.addAll(curStrings);
 			}
 		});
-
-		Log.e("error", adapter.toString());
-
-		Log.e("error", String.valueOf(adapter.getCount()));
 	}
+	
+	public class CurrencyItemSelectedListener implements OnItemSelectedListener {
+		@Override
+		public void onItemSelected(AdapterView<?> parent, View view, int pos,
+				long id) {
+			String event = parent == inSpinner ? "selectedInCurrency"
+					: "selectedOutCurrency";
+			JSONArray jsonArray = parent == inSpinner ? inJsonArray : outJsonArray;
+			String currencyCode = inCurrencyCode;
 
-	@Override
-	public void onItemSelected(AdapterView<?> parent, View view, int pos,
-			long id) {
-		String event = parent == inSpinner ? "selectedInCurrency"
-				: "selectedOutCurrency";
-		JSONArray jsonArray = parent == inSpinner ? inJsonArray : outJsonArray;
-		String currencyCode = "USD";
+//			Log.e("error", jsonArray.toString());
+//			Log.e("error", event);
+			
+			Log.e("hey", "onItemSelected");
 
-		Log.e("error", jsonArray.toString());
-		Log.e("error", event);
+			if (parent == inSpinner) {
+				inCurrencyCode = (String) parent.getItemAtPosition(pos);
+				Log.e("currCode", inCurrencyCode);
+				 try {
+					 if(jsonArray.getJSONObject(pos).getBoolean("enabled") == false) {
+						 inCurrencyCode = (String) parent.getItemAtPosition((pos + 1) % jsonArray.length());
+						 parent.setSelection((pos + 1) % jsonArray.length());
+					 }
+				 } catch (JSONException e) {
+					 // TODO Auto-generated catch block
+					 e.printStackTrace();
+				 }
+				currencyCode = inCurrencyCode;
+			} else if (parent == outSpinner) {
+				outCurrencyCode = (String) parent.getItemAtPosition(pos);
+				try {
+					if(jsonArray.getJSONObject(pos).getBoolean("enabled") == false) {
+						outCurrencyCode = (String) parent.getItemAtPosition((pos + 1) %
+								jsonArray.length());
+						parent.setSelection((pos + 1) % jsonArray.length());
+					}
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				currencyCode = outCurrencyCode;
+			}
 
-		if (parent == inSpinner) {
-			inCurrencyCode = (String) parent.getItemAtPosition(pos);
-			// try {
-			// if(jsonArray.getJSONObject(pos).getBoolean("enabled") == false) {
-			// inCurrencyCode = (String) parent.getItemAtPosition((pos + 1) %
-			// jsonArray.length());
-			// parent.setSelection((pos + 1) % jsonArray.length());
-			// }
-			// } catch (JSONException e) {
-			// // TODO Auto-generated catch block
-			// e.printStackTrace();
-			// }
-			currencyCode = inCurrencyCode;
-		} else if (parent == outSpinner) {
-			outCurrencyCode = (String) parent.getItemAtPosition(pos);
-			// try {
-			// if(jsonArray.getJSONObject(pos).getBoolean("enabled") == false) {
-			// outCurrencyCode = (String) parent.getItemAtPosition((pos + 1) %
-			// jsonArray.length());
-			// parent.setSelection((pos + 1) % jsonArray.length());
-			// }
-			// } catch (JSONException e) {
-			// // TODO Auto-generated catch block
-			// e.printStackTrace();
-			// }
-			currencyCode = outCurrencyCode;
+			convForm.triggerEvent(event, new String[] { currencyCode });
 		}
 
-		this.triggerEvent(event, new String[] { currencyCode });
-	}
+		@Override
+		public void onNothingSelected(AdapterView<?> parent) {
 
-	@Override
-	public void onNothingSelected(AdapterView<?> parent) {
-
+		}
 	}
 }
